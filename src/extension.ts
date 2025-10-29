@@ -1,6 +1,9 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+function delay(ms: number) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 async function generateCppProperties(sdkPath: string) {
     if (!sdkPath || !fs.existsSync(sdkPath)) {
@@ -25,7 +28,10 @@ async function generateCppProperties(sdkPath: string) {
     if (!fs.existsSync(vscodeDir)) {
         fs.mkdirSync(vscodeDir, { recursive: true });
     }
-
+    if (fs.existsSync(cppPropsPath)) {
+       // vscode.window.showInformationMessage('ℹ️ c_cpp_properties.json already exists. Skipped generation.');
+        return;
+    }
     const cppConfig = {
         configurations: [
             {
@@ -53,8 +59,9 @@ async function generateCppProperties(sdkPath: string) {
     // 写入 JSON 文件
     fs.writeFileSync(cppPropsPath, JSON.stringify(cppConfig, null, 4), { encoding: 'utf8' });
 
-    vscode.window.showInformationMessage(`✅ 已生成 c_cpp_properties.json，name=${sdkName}`);
+    vscode.window.showInformationMessage(`✅ Generated c_cpp_properties.json,name=${sdkName}`);
 }
+
 
 function getConfig<T>(key: string, defaultValue: T): T {
     const cfg = vscode.workspace.getConfiguration();
@@ -70,28 +77,6 @@ function updateConfig(key: string, value: any) {
 function getExportScript(): string {
     return process.platform === 'win32' ? '.\\export.bat' : './export.sh';
 }
-
-// 生成实际命令
-function makeCommandLine(projectPath: string, tosSubCmd: string, includeEnv: boolean = true): string {
-    const exportScript = getExportScript();
-
-    if (process.platform === 'win32') {
-       
-        if (includeEnv) {
-            return `cmd /c "cd /d "${projectPath}" && ${exportScript} && ${tosSubCmd}"`;
-        } else {
-            return `cmd /c "cd /d "${projectPath}" && ${tosSubCmd}"`;
-        }
-    } else {
-        // Linux/macOS/WSL
-        if (includeEnv) {
-            return `bash -lc 'cd "${projectPath}" && . ${exportScript} && ${tosSubCmd}'`;
-        } else {
-            return `bash -lc 'cd "${projectPath}" && ${tosSubCmd}'`;
-        }
-    }
-}
-
 export function activate(context: vscode.ExtensionContext) {
 
     let sharedTerminal: vscode.Terminal | undefined;
@@ -108,7 +93,7 @@ export function activate(context: vscode.ExtensionContext) {
             const disposable = vscode.window.onDidCloseTerminal(t => {
                 if (t.name === terminalName) {
                     sharedTerminal = undefined;
-                    isEnvActivated = false; // 关闭终端后重置激活状态
+                    isEnvActivated = false;
                     disposable.dispose();
                 }
             });
@@ -117,12 +102,12 @@ export function activate(context: vscode.ExtensionContext) {
     }
 
     // 获取 SDK 根目录，如果未设置则弹出输入框
-    async function getProjectPath(): Promise<string | undefined> {
-        let projectPath = getConfig<string>('TuyaOpenHelper.projectPath', '');
-        if (!projectPath) {
+    async function getTuyaOpenSDKPath(): Promise<string | undefined> {
+        let tuyaOpenSDKPath = getConfig<string>('TuyaOpenHelper.tuyaOpenSDKPath', '');
+        if (!tuyaOpenSDKPath) {
             const inputPath = await vscode.window.showInputBox({
                 ignoreFocusOut: true,
-                prompt: '请输入 SDK 根目录路径',
+                prompt: 'Please input your SDK path',
                 placeHolder: process.platform === 'win32' ? 'Please input your SDK path' : '/home/user/sdk',
             });
 
@@ -130,58 +115,59 @@ export function activate(context: vscode.ExtensionContext) {
                 vscode.window.showErrorMessage('❌ SDK path error,ignore command');
                 return undefined;
             }
-            projectPath = inputPath;
+            tuyaOpenSDKPath = inputPath;
 
-            if (!fs.existsSync(projectPath)) {
-                vscode.window.showErrorMessage(`❌ SDK path doesn't exist: ${projectPath}`);
+            if (!fs.existsSync(tuyaOpenSDKPath)) {
+                vscode.window.showErrorMessage(`❌ SDK path doesn't exist: ${tuyaOpenSDKPath}`);
                 return undefined;
             }
 
-            updateConfig('TuyaOpenHelper.projectPath', projectPath);
-            vscode.window.showInformationMessage(`✅ Set SDK path: ${projectPath}`);
+            updateConfig('TuyaOpenHelper.tuyaOpenSDKPath', tuyaOpenSDKPath);
+            vscode.window.showInformationMessage(`✅ Set SDK path: ${tuyaOpenSDKPath}`);
         }
-        return projectPath;
+        return tuyaOpenSDKPath;
     }
 
     async function runTosCommand(tosSubCmd: string, keepTerminalVisible: boolean = true) {
         const currentDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 
-        const projectPath = await getProjectPath();
-        if (!projectPath) return;
+        const tuyaOpenSDKPath = await getTuyaOpenSDKPath();
+        if (!tuyaOpenSDKPath) return;
 
         const includeEnv = !isEnvActivated; // 如果环境没激活就包含 export
         if (includeEnv) isEnvActivated = true; // 激活标记
         if (includeEnv == false) {
-
-
             const term = getTerminal();
             term.show(true);
-
-
             if (currentDir != project_currentDir) {
-                const new_cmd = ` cd /d "${currentDir}"`;
-
+                const new_cmd = process.platform === 'win32'
+                    ? `cd /d "${currentDir}"`
+                    : `cd "${currentDir}"`;
                 term.sendText(new_cmd, true);
-
-             
+                await delay(10);
             }
-
-            const tosCmd = process.platform === 'win32' ? `${tosSubCmd}` : `bash -lc '${tosSubCmd}'`;
-             term.sendText(tosCmd, true);
-
-         
+            const tosCmd = process.platform === 'win32' ? `${tosSubCmd}` : `${tosSubCmd}`;
+            term.sendText(tosCmd, true);
             return;
         }
 
         if (!project_currentDir) {
-            project_currentDir = projectPath;
+            project_currentDir = tuyaOpenSDKPath;
         }
-
-        const cmd = makeCommandLine(projectPath, tosSubCmd, includeEnv);
+        const exportScript = getExportScript();
         const term = getTerminal();
         term.show(true);
-        term.sendText(cmd, true);
-        generateCppProperties(projectPath);
+        if (process.platform === 'win32') {
+            const _cmd = `cmd /c "cd /d "${tuyaOpenSDKPath}" && ${exportScript} && ${tosSubCmd}"`;
+            term.sendText(_cmd, true);
+        } else {
+            term.sendText(`cd "${tuyaOpenSDKPath}"`, true);
+            await delay(10);
+            term.sendText(`. ${exportScript}`, true);
+            term.sendText(tosSubCmd, true);
+
+        }
+        generateCppProperties(tuyaOpenSDKPath);
 
 
 
@@ -206,8 +192,8 @@ export function activate(context: vscode.ExtensionContext) {
 
     // 创建状态栏按钮
     const items: { cmd: string; text: string; tooltip: string; priority?: number }[] = [
-        { cmd: 'TuyaOpenHelper.runEnv', text: '$(plug) Env', tooltip: '激活环境', priority: 100 },
-        { cmd: 'TuyaOpenHelper.build', text: '$(check) Build', tooltip: '一键 build', priority: 99 },
+        { cmd: 'TuyaOpenHelper.runEnv', text: '$(plug) Env', tooltip: 'Activate the tos environment', priority: 100 },
+        { cmd: 'TuyaOpenHelper.build', text: '$(check) Build', tooltip: 'Build the project', priority: 99 },
         { cmd: 'TuyaOpenHelper.configChoice', text: '$(gear) BoardConfig', tooltip: 'config choice', priority: 98 },
         { cmd: 'TuyaOpenHelper.menuconfig', text: '$(settings-gear) MenuCfg', tooltip: 'menuconfig', priority: 97 },
         { cmd: 'TuyaOpenHelper.flash', text: '$(rocket) Flash', tooltip: 'flash', priority: 96 },
@@ -223,6 +209,12 @@ export function activate(context: vscode.ExtensionContext) {
         sb.show();
         context.subscriptions.push(sb);
     });
+    setTimeout(() => {
+        let sdk = getConfig<string>('TuyaOpenHelper.tuyaOpenSDKPath', '');
+        if (sdk) {
+            vscode.commands.executeCommand('TuyaOpenHelper.runEnv');
+        }
+    }, 1000);
 }
 
 export function deactivate() { }

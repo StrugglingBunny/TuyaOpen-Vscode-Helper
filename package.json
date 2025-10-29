@@ -3,7 +3,11 @@
   "displayName": "TuyaOpen-helper",
   "description": "A extension for TuyaOpen",
   "publisher": "StrugglingBunny",
-  "version": "0.0.1",
+  "version": "0.0.2",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/StrugglingBunny/TuyaOpen-Vscode-Helper"
+  },
   "engines": {
     "vscode": ">=1.60.0"
   },
@@ -56,7 +60,7 @@
       "type": "object",
       "title": "TuyaOpen Helper",
       "properties": {
-        "TuyaOpenHelper.projectPath": {
+        "TuyaOpenHelper.tuyaOpenSDKPath": {
           "type": "string",
           "default": "",
           "description": "Project directory (the extension will cd to this directory and run scripts). If not set initially, an input box will prompt you to enter it."
