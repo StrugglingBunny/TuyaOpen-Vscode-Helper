@@ -5,7 +5,7 @@
   "publisher": "StrugglingBunny",
   "version": "0.0.1",
   "engines": {
-    "vscode": "^1.105.0"
+    "vscode": ">=1.60.0"
   },
   "categories": [
     "Other"
@@ -23,37 +23,56 @@
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
-      { "command": "TuyaOpenHelper.runEnv", "title": "TuyaOpenHelper: Activate the environment (. ./export.sh)" },
-      { "command": "TuyaOpenHelper.build", "title": "TuyaOpenHelper: build (tos.py build)" },
-      { "command": "TuyaOpenHelper.configChoice", "title": "TuyaOpenHelper: config choice (tos.py config choice)" },
-      { "command": "TuyaOpenHelper.flash", "title": "TuyaOpenHelper: flash (tos.py flash)" },
-      { "command": "TuyaOpenHelper.clean", "title": "TuyaOpenHelper: clean (tos.py clean)" },
-      { "command": "TuyaOpenHelper.monitor", "title": "TuyaOpenHelper: monitor (tos.py monitor)" },
-      { "command": "TuyaOpenHelper.menuconfig", "title": "TuyaOpenHelper: menuconfig (tos.py config menu)" }
+      {
+        "command": "TuyaOpenHelper.runEnv",
+        "title": "TuyaOpenHelper: Activate the environment (. ./export.sh)"
+      },
+      {
+        "command": "TuyaOpenHelper.build",
+        "title": "TuyaOpenHelper: build (tos.py build)"
+      },
+      {
+        "command": "TuyaOpenHelper.configChoice",
+        "title": "TuyaOpenHelper: config choice (tos.py config choice)"
+      },
+      {
+        "command": "TuyaOpenHelper.flash",
+        "title": "TuyaOpenHelper: flash (tos.py flash)"
+      },
+      {
+        "command": "TuyaOpenHelper.clean",
+        "title": "TuyaOpenHelper: clean (tos.py clean)"
+      },
+      {
+        "command": "TuyaOpenHelper.monitor",
+        "title": "TuyaOpenHelper: monitor (tos.py monitor)"
+      },
+      {
+        "command": "TuyaOpenHelper.menuconfig",
+        "title": "TuyaOpenHelper: menuconfig (tos.py config menu)"
+      }
     ],
-   "configuration": {
-  "type": "object",
-  "title": "TuyaOpen Helper",
-  "properties": {
-    "TuyaOpenHelper.projectPath": {
-      "type": "string",
-      "default": "",
-      "description": "Project directory (the extension will cd to this directory and run scripts). If not set initially, an input box will prompt you to enter it."
-    },
-    "TuyaOpenHelper.exportScript": {
-      "type": "string",
-      "default": "",
-      "description": "Path to the script that activates the environment (relative to projectPath). If empty, the extension will automatically use ./export.sh or .\\export.bat based on the system."
-    },
-    "TuyaOpenHelper.terminalName": {
-      "type": "string",
-      "default": "TuyaOpen Helper",
-      "description": "The name of the terminal used by the extension."
+    "configuration": {
+      "type": "object",
+      "title": "TuyaOpen Helper",
+      "properties": {
+        "TuyaOpenHelper.projectPath": {
+          "type": "string",
+          "default": "",
+          "description": "Project directory (the extension will cd to this directory and run scripts). If not set initially, an input box will prompt you to enter it."
+        },
+        "TuyaOpenHelper.exportScript": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the script that activates the environment (relative to projectPath). If empty, the extension will automatically use ./export.sh or .\\export.bat based on the system."
+        },
+        "TuyaOpenHelper.terminalName": {
+          "type": "string",
+          "default": "TuyaOpen Helper",
+          "description": "The name of the terminal used by the extension."
+        }
+      }
     }
-  }
-}
-
-
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
@@ -64,14 +83,14 @@
     "test": "vscode-test"
   },
   "devDependencies": {
-    "@types/vscode": "^1.105.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
+    "@types/vscode": "^1.60.0",
     "@typescript-eslint/eslint-plugin": "^8.45.0",
     "@typescript-eslint/parser": "^8.45.0",
-    "eslint": "^9.36.0",
-    "typescript": "^5.9.3",
     "@vscode/test-cli": "^0.0.11",
-    "@vscode/test-electron": "^2.5.2"
+    "@vscode/test-electron": "^2.5.2",
+    "eslint": "^9.36.0",
+    "typescript": "^5.9.3"
   }
 }
