@@ -1,5 +1,24 @@
 # TuyaOpen Helper 0.0.1 Usage Guide
 
+This extension helps automate the environment activation, build, flash, clean, and serial monitor functionalities for the **TuyaOpen SDK**.
+
+## Features
+- **Automatically activate TuyaOpen SDK environment**.
+- **Build** the firmware.
+- **Flash** the firmware to the device.
+- **Clean** the build environment.
+- **Monitor** the serial output.
+
+## Supported Operating Systems
+
+| Operating System | Supported | Notes                        |
+| ---------------- | --------- | ---------------------------- |
+| Windows          | ✅        | Full support                 |
+| Linux            | ✅        | Full support                 |
+| macOS            | ⬜        | Pending testing              |
+
+- ✅: Supported and tested.
+- ⬜: Pending testing.
 ## Installation
 
 1. Open VSCode.
