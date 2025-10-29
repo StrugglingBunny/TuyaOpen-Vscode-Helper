@@ -1,4 +1,4 @@
-# TuyaOpen Helper 0.0.1 Usage Guide
+# TuyaOpen Helper Usage Guide
 
 This extension helps automate the environment activation, build, flash, clean, and serial monitor functionalities for the **TuyaOpen SDK**.
 
