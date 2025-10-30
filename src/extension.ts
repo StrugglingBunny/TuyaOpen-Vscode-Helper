@@ -4,7 +4,7 @@ import * as path from 'path';
 import { SerialPort } from 'serialport';
 
 let serialStatusBar: vscode.StatusBarItem;
-
+let boardConfigItemBar: vscode.StatusBarItem;
 
 
 
@@ -13,7 +13,37 @@ function updateSerialStatusBar(port?: string) {
     serialStatusBar.text = port ? `$(plug) ${port}` : '$(plug) Serial';
     serialStatusBar.tooltip = port ? `Selected serial port: ${port}` : 'Select serial port';
 }
+function updateboardConfigItemBar(board?: string) {
+    if (!boardConfigItemBar) return;
+    boardConfigItemBar.text = board ? `$(chips) ${board}` : '$(chips) Board';
+    boardConfigItemBar.tooltip = board ? `Selected${board}` : 'Config platform';
+}
+function getPlatformFromConfig(workspaceFolder: string): string | undefined {
+    const configPath = path.join(workspaceFolder, 'app_default.config');
+    if (!fs.existsSync(configPath)) return undefined;
 
+    const content = fs.readFileSync(configPath, 'utf-8');
+    const lines = content.split(/\r?\n/);
+
+    //  CONFIG_BOARD_CHOICE_xxx=y
+    const boardChoices = lines
+        .map(line => {
+            const match = line.match(/^CONFIG_BOARD_CHOICE_(.+?)=y$/);
+            return match ? match[1] : null;
+        })
+        .filter(Boolean) as string[];
+
+    if (boardChoices.length === 0) return undefined;
+
+    let platformName = boardChoices[0];
+    if (boardChoices.length > 1) {
+        const esp = boardChoices.find(b => b.includes('_'));
+        if (esp) platformName = esp;
+        else platformName = boardChoices[boardChoices.length - 1]; // 备用
+    }
+
+    return `platform:${platformName}`;
+}
 
 async function selectSerialPort(force = false) {
     const config = vscode.workspace.getConfiguration('TuyaOpenHelper');
@@ -128,6 +158,7 @@ function updateConfig(key: string, value: any) {
 function getExportScript(): string {
     return process.platform === 'win32' ? '.\\export.bat' : './export.sh';
 }
+
 export function activate(context: vscode.ExtensionContext) {
 
     let sharedTerminal: vscode.Terminal | undefined;
@@ -178,6 +209,68 @@ export function activate(context: vscode.ExtensionContext) {
         }
         return tuyaOpenSDKPath;
     }
+    async function selectBoard() {
+        const sdkPath = await getTuyaOpenSDKPath();
+        if (!sdkPath) return;
+
+
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        if (!workspaceFolder) return;
+
+        const appDefaultPath = path.join(workspaceFolder, 'app_default.config');
+
+        let currentContent = '';
+        if (fs.existsSync(appDefaultPath)) {
+            currentContent = fs.readFileSync(appDefaultPath, 'utf-8');
+        }
+
+
+
+        const boardsDir = path.join(sdkPath, 'boards');
+        const boardFolders = fs.readdirSync(boardsDir, { withFileTypes: true })
+            .filter(f => f.isDirectory())
+            .map(f => f.name);
+
+        // 构建 QuickPick 列表
+        const boardItems: vscode.QuickPickItem[] = [];
+        for (const board of boardFolders) {
+            const configDir = path.join(boardsDir, board, 'config');
+            if (!fs.existsSync(configDir)) continue;
+
+            const configFiles = fs.readdirSync(configDir)
+                .filter(f => f.endsWith('.config'));
+
+            for (const cfg of configFiles) {
+                boardItems.push({
+                    label: `${board} -> ${cfg}`,
+                    description: path.join(configDir, cfg)
+                });
+            }
+        }
+
+        const choice = await vscode.window.showQuickPick(boardItems, {
+            placeHolder: 'Select board platform'
+        });
+
+        if (!choice) return;
+        const selectedConfigPath = choice.description!;
+        const newContent = fs.readFileSync(selectedConfigPath, 'utf-8');
+
+        // Need to change the configuration
+        if (currentContent !== newContent) {
+            const destConfig = path.join(workspaceFolder, 'app_default.config');
+            // Update the status bar
+            fs.copyFileSync(choice.description!, destConfig);
+            updateboardConfigItemBar(`Platform: ${choice.label.split(' -> ')[1].replace('.config', '')}`)
+            setTimeout(() => {
+                //Full clean
+                runTosCommand('tos.py clean');
+            }, 500);
+
+        }
+    }
+
+
 
     async function runTosCommand(tosSubCmd: string, keepTerminalVisible: boolean = true) {
         const currentDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
@@ -190,8 +283,6 @@ export function activate(context: vscode.ExtensionContext) {
             await selectSerialPort(true);
             return;
         }
-
-
 
 
 
@@ -214,6 +305,9 @@ export function activate(context: vscode.ExtensionContext) {
                 if (port) {
                     tosCmd = tosCmd + ` --port ${port}`;
                 }
+            } else if (/config choice/.test(tosSubCmd)) {
+                await selectBoard();
+                return;
             }
             term.sendText(tosCmd, true);
             return;
@@ -236,11 +330,6 @@ export function activate(context: vscode.ExtensionContext) {
 
         }
         generateCppProperties(tuyaOpenSDKPath);
-
-
-
-
-
     }
 
     // 注册命令
@@ -278,6 +367,8 @@ export function activate(context: vscode.ExtensionContext) {
         context.subscriptions.push(sb);
         if (it.cmd === 'TuyaOpenHelper.setSerialPort') {
             serialStatusBar = sb;
+        } else if (it.cmd === 'TuyaOpenHelper.configChoice') {
+            boardConfigItemBar = sb;
         }
     });
     setTimeout(() => {
@@ -291,6 +382,11 @@ export function activate(context: vscode.ExtensionContext) {
         const savedPort = config.get<string>('serialPort');
         if (savedPort) {
             updateSerialStatusBar(savedPort);
+        }
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        if (workspaceFolder) {
+            const platform = getPlatformFromConfig(workspaceFolder);
+            updateboardConfigItemBar(platform);
         }
     }, 2000);
 }
