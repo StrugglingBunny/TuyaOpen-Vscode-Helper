@@ -258,9 +258,19 @@ export function activate(context: vscode.ExtensionContext) {
 
         // Need to change the configuration
         if (currentContent !== newContent) {
+
             const destConfig = path.join(workspaceFolder, 'app_default.config');
             // Update the status bar
             fs.copyFileSync(choice.description!, destConfig);
+            const buildPath = path.join(workspaceFolder, '.build');
+            if (fs.existsSync(buildPath)) {
+                try {
+                    fs.rmSync(buildPath, { recursive: true, force: true });
+                    console.log(`[INFO]: Removed build folder: ${buildPath}`);
+                } catch (err) {
+                    console.error('[ERROR]: Failed to remove .build folder:', err);
+                }
+            }
             updateboardConfigItemBar(`Platform: ${choice.label.split(' -> ')[1].replace('.config', '')}`)
             setTimeout(() => {
                 //Full clean
