@@ -1,6 +1,57 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import { SerialPort } from 'serialport';
+
+let serialStatusBar: vscode.StatusBarItem;
+
+
+
+
+function updateSerialStatusBar(port?: string) {
+    if (!serialStatusBar) return;
+    serialStatusBar.text = port ? `$(plug) ${port}` : '$(plug) Serial';
+    serialStatusBar.tooltip = port ? `Selected serial port: ${port}` : 'Select serial port';
+}
+
+
+async function selectSerialPort(force = false) {
+    const config = vscode.workspace.getConfiguration('TuyaOpenHelper');
+    const savedPort = config.get<string>('serialPort');
+
+    if (savedPort && !force) {
+        updateSerialStatusBar(savedPort);
+        return savedPort;
+    }
+
+    try {
+        const ports = await SerialPort.list();
+        if (!ports || ports.length === 0) {
+            vscode.window.showWarningMessage('No serial ports found.');
+            return;
+        }
+
+        const items = ports.map(p => ({
+            label: p.path,
+            description: p.manufacturer || ''
+        }));
+
+        const selected = await vscode.window.showQuickPick(items, {
+            placeHolder: 'Select serial port',
+            canPickMany: false
+        });
+
+        if (!selected) return;
+
+        await config.update('serialPort', selected.label, vscode.ConfigurationTarget.Global);
+        vscode.window.showInformationMessage(`Serial port saved: ${selected.label}`);
+        updateSerialStatusBar(selected.label);
+        return selected.label;
+    } catch (err) {
+        vscode.window.showErrorMessage(`Error listing serial ports: ${err}`);
+    }
+}
+
 function delay(ms: number) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -29,7 +80,7 @@ async function generateCppProperties(sdkPath: string) {
         fs.mkdirSync(vscodeDir, { recursive: true });
     }
     if (fs.existsSync(cppPropsPath)) {
-       // vscode.window.showInformationMessage('ℹ️ c_cpp_properties.json already exists. Skipped generation.');
+        // vscode.window.showInformationMessage('ℹ️ c_cpp_properties.json already exists. Skipped generation.');
         return;
     }
     const cppConfig = {
@@ -133,6 +184,17 @@ export function activate(context: vscode.ExtensionContext) {
 
         const tuyaOpenSDKPath = await getTuyaOpenSDKPath();
         if (!tuyaOpenSDKPath) return;
+        //Set serial ports
+        if (tosSubCmd === 'TuyaOpenHelper.setSerialPort') {
+            vscode.window.showInformationMessage(`runTosCommand: ${tosSubCmd}`);
+            await selectSerialPort(true);
+            return;
+        }
+
+
+
+
+
 
         const includeEnv = !isEnvActivated; // 如果环境没激活就包含 export
         if (includeEnv) isEnvActivated = true; // 激活标记
@@ -146,11 +208,17 @@ export function activate(context: vscode.ExtensionContext) {
                 term.sendText(new_cmd, true);
                 await delay(10);
             }
-            const tosCmd = process.platform === 'win32' ? `${tosSubCmd}` : `${tosSubCmd}`;
+            let tosCmd = process.platform === 'win32' ? `${tosSubCmd}` : `${tosSubCmd}`;
+            if (/flash|monitor/.test(tosSubCmd)) {
+                const port = await selectSerialPort();
+                if (port) {
+                    tosCmd = tosCmd + ` --port ${port}`;
+                }
+            }
             term.sendText(tosCmd, true);
             return;
         }
-
+        // Activate the TuyaOpen environment
         if (!project_currentDir) {
             project_currentDir = tuyaOpenSDKPath;
         }
@@ -178,6 +246,7 @@ export function activate(context: vscode.ExtensionContext) {
     // 注册命令
     const commands = [
         { id: 'TuyaOpenHelper.runEnv', cmd: 'echo "Environment activated"' },
+        { id: 'TuyaOpenHelper.setSerialPort', cmd: 'TuyaOpenHelper.setSerialPort' },
         { id: 'TuyaOpenHelper.configChoice', cmd: 'tos.py config choice' },
         { id: 'TuyaOpenHelper.build', cmd: 'tos.py build' },
         { id: 'TuyaOpenHelper.flash', cmd: 'tos.py flash' },
@@ -189,16 +258,15 @@ export function activate(context: vscode.ExtensionContext) {
     commands.forEach(c => {
         context.subscriptions.push(vscode.commands.registerCommand(c.id, () => runTosCommand(c.cmd, c.keepTerminal)));
     });
-
-    // 创建状态栏按钮
     const items: { cmd: string; text: string; tooltip: string; priority?: number }[] = [
-        { cmd: 'TuyaOpenHelper.runEnv', text: '$(plug) Env', tooltip: 'Activate the tos environment', priority: 100 },
-        { cmd: 'TuyaOpenHelper.build', text: '$(check) Build', tooltip: 'Build the project', priority: 99 },
+        { cmd: 'TuyaOpenHelper.runEnv', text: '$(tools) Env', tooltip: 'Activate the tos environment', priority: 100 },
+        { cmd: 'TuyaOpenHelper.setSerialPort', text: '$(plug) Serial', tooltip: 'Select serial port', priority: 99 },
         { cmd: 'TuyaOpenHelper.configChoice', text: '$(gear) BoardConfig', tooltip: 'config choice', priority: 98 },
         { cmd: 'TuyaOpenHelper.menuconfig', text: '$(settings-gear) MenuCfg', tooltip: 'menuconfig', priority: 97 },
-        { cmd: 'TuyaOpenHelper.flash', text: '$(rocket) Flash', tooltip: 'flash', priority: 96 },
-        { cmd: 'TuyaOpenHelper.monitor', text: '$(terminal) Monitor', tooltip: 'monitor', priority: 95 },
-        { cmd: 'TuyaOpenHelper.clean', text: '$(trash) clean', tooltip: 'clean', priority: 94 }
+        { cmd: 'TuyaOpenHelper.build', text: '$(check) Build', tooltip: 'Build the project', priority: 96 },
+        { cmd: 'TuyaOpenHelper.flash', text: '$(rocket) Flash', tooltip: 'flash', priority: 94 },
+        { cmd: 'TuyaOpenHelper.monitor', text: '$(terminal) Monitor', tooltip: 'monitor', priority: 93 },
+        { cmd: 'TuyaOpenHelper.clean', text: '$(trash) clean', tooltip: 'clean', priority: 92 },
     ];
 
     items.forEach(it => {
@@ -208,6 +276,9 @@ export function activate(context: vscode.ExtensionContext) {
         sb.tooltip = it.tooltip;
         sb.show();
         context.subscriptions.push(sb);
+        if (it.cmd === 'TuyaOpenHelper.setSerialPort') {
+            serialStatusBar = sb;
+        }
     });
     setTimeout(() => {
         let sdk = getConfig<string>('TuyaOpenHelper.tuyaOpenSDKPath', '');
@@ -215,6 +286,13 @@ export function activate(context: vscode.ExtensionContext) {
             vscode.commands.executeCommand('TuyaOpenHelper.runEnv');
         }
     }, 1000);
+    setTimeout(() => {
+        const config = vscode.workspace.getConfiguration('TuyaOpenHelper');
+        const savedPort = config.get<string>('serialPort');
+        if (savedPort) {
+            updateSerialStatusBar(savedPort);
+        }
+    }, 2000);
 }
 
 export function deactivate() { }
