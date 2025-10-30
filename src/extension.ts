@@ -15,7 +15,7 @@ function updateSerialStatusBar(port?: string) {
 }
 function updateboardConfigItemBar(board?: string) {
     if (!boardConfigItemBar) return;
-    boardConfigItemBar.text = board ? `$(chips) ${board}` : '$(chips) Board';
+    boardConfigItemBar.text = board ? `$(circuit-board) ${board}` : '$(circuit-board) Board';
     boardConfigItemBar.tooltip = board ? `Selected${board}` : 'Config platform';
 }
 function getPlatformFromConfig(workspaceFolder: string): string | undefined {
@@ -350,7 +350,7 @@ export function activate(context: vscode.ExtensionContext) {
     const items: { cmd: string; text: string; tooltip: string; priority?: number }[] = [
         { cmd: 'TuyaOpenHelper.runEnv', text: '$(tools) Env', tooltip: 'Activate the tos environment', priority: 100 },
         { cmd: 'TuyaOpenHelper.setSerialPort', text: '$(plug) Serial', tooltip: 'Select serial port', priority: 99 },
-        { cmd: 'TuyaOpenHelper.configChoice', text: '$(gear) BoardConfig', tooltip: 'config choice', priority: 98 },
+        { cmd: 'TuyaOpenHelper.configChoice', text: '$(circuit-board) BoardConfig', tooltip: 'config choice', priority: 98 },
         { cmd: 'TuyaOpenHelper.menuconfig', text: '$(settings-gear) MenuCfg', tooltip: 'menuconfig', priority: 97 },
         { cmd: 'TuyaOpenHelper.build', text: '$(check) Build', tooltip: 'Build the project', priority: 96 },
         { cmd: 'TuyaOpenHelper.flash', text: '$(rocket) Flash', tooltip: 'flash', priority: 94 },
