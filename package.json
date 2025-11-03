@@ -3,7 +3,7 @@
   "displayName": "TuyaOpen-helper",
   "description": "A extension for TuyaOpen",
   "publisher": "StrugglingBunny",
-  "version": "0.0.3",
+  "version": "0.0.5",
   "repository": {
     "type": "git",
     "url": "https://github.com/StrugglingBunny/TuyaOpen-Vscode-Helper"
