@@ -3,7 +3,7 @@
   "displayName": "TuyaOpen-helper",
   "description": "A extension for TuyaOpen",
   "publisher": "StrugglingBunny",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "repository": {
     "type": "git",
     "url": "https://github.com/StrugglingBunny/TuyaOpen-Vscode-Helper"
@@ -16,6 +16,7 @@
   ],
   "activationEvents": [
     "onCommand:TuyaOpenHelper.runEnv",
+    "onCommand:TuyaOpenHelper.setSerialPort",
     "onCommand:TuyaOpenHelper.build",
     "onCommand:TuyaOpenHelper.configChoice",
     "onCommand:TuyaOpenHelper.flash",
@@ -74,6 +75,11 @@
           "type": "string",
           "default": "TuyaOpen Helper",
           "description": "The name of the terminal used by the extension."
+        },
+        "TuyaOpenHelper.serialPort": {
+          "type": "string",
+          "default": "",
+          "description": "Selected serial port"
         }
       }
     }
@@ -96,5 +102,9 @@
     "@vscode/test-electron": "^2.5.2",
     "eslint": "^9.36.0",
     "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@serialport/list": "^13.0.0",
+    "serialport": "^13.0.0"
   }
 }
