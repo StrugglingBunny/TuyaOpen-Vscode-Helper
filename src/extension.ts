@@ -5,7 +5,7 @@ import { SerialPort } from 'serialport';
 
 let serialStatusBar: vscode.StatusBarItem;
 let boardConfigItemBar: vscode.StatusBarItem;
-
+let _isMonitor_on = false;
 
 
 function updateSerialStatusBar(port?: string) {
@@ -293,10 +293,6 @@ export function activate(context: vscode.ExtensionContext) {
             await selectSerialPort(true);
             return;
         }
-
-
-
-
         const includeEnv = !isEnvActivated; // 如果环境没激活就包含 export
         if (includeEnv) isEnvActivated = true; // 激活标记
         if (includeEnv == false) {
@@ -309,12 +305,30 @@ export function activate(context: vscode.ExtensionContext) {
                 term.sendText(new_cmd, true);
                 await delay(10);
             }
+
+               // Exit the monitor terminal
+            if (_isMonitor_on == true) {
+                //turn off the monitor 
+                term.sendText('\x03', false); // Ctrl+C
+                await delay(300);
+                term.sendText('\r', false); // send enter
+                await delay(300);
+                _isMonitor_on = false;
+
+            } else {
+                if (/monitor/.test(tosSubCmd))//User try to turn on the monitor
+                {
+                    _isMonitor_on = true;
+                }
+            }
+
             let tosCmd = process.platform === 'win32' ? `${tosSubCmd}` : `${tosSubCmd}`;
             if (/flash|monitor/.test(tosSubCmd)) {
                 const port = await selectSerialPort();
                 if (port) {
                     tosCmd = tosCmd + ` --port ${port}`;
                 }
+
             } else if (/config choice/.test(tosSubCmd)) {
                 await selectBoard();
                 return;
